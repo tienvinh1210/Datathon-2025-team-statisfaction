@@ -1,0 +1,759 @@
+---
+title: "EDA"
+format: html
+editor: visual
+---
+
+```{r, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(plotly)
+library(GGally)
+```
+
+```{r}
+data = read_csv("../dynamic_supply_chain_logistics_dataset.csv")
+str(data)
+```
+
+**Risk classification** =\> 75% high risk, 16% moderate risk, 10% low risk
+
+```{r}
+table(data$risk_classification)
+ggplotly(ggplot(data, aes(x = risk_classification, y = after_stat(count / sum(count)))) +
+  geom_bar(stat = "count"))
+```
+
+**fuel_consumption_rate:** Fuel Consumption Rate — float (liters/hour). NOTEWORTHY good
+
+Median is 5.64, upper fence is 16.64
+
+CHECK: What causes high fuel consumption rate?
+
+Ideal: 4–7, Good: 7–10, Accept: 10–14, Bad: 14–18, Terrible: \>18.
+
+Reasoning for bands: Trucks: 5–15, Drones negligible (\<1, likely not included), Rail locomotives much higher but averaged down.
+
+```{r}
+print("Observations > 16.64")
+# Total number of observations >16.64
+# sum(data$fuel_consumption_rate > 16.64)
+# Proportion of the sample
+mean(data$fuel_consumption_rate > 16.64)
+
+print("Observation > 18 (Terrible)")
+mean(data$fuel_consumption_rate > 18)
+print("Observation 14 - 18 (Bad)")
+mean(data$fuel_consumption_rate > 14 & data$fuel_consumption_rate <= 18)
+print("Observation > 14 (Bad/ Terrible)")
+mean(data$fuel_consumption_rate > 14)
+print("Observation 10 - 14 (Accept)")
+mean(data$fuel_consumption_rate > 10 & data$fuel_consumption_rate <= 14)
+print("Observation 7 - 10 (Good)")
+mean(data$fuel_consumption_rate > 7 & data$fuel_consumption_rate <= 10)
+print("Observation 4 - 7 (Ideal)")
+mean(data$fuel_consumption_rate > 4 & data$fuel_consumption_rate <= 7)
+
+```
+
+8% of the data is outliers. 5% of the fuel consumption rates are terrible, 13%
+
+**eta_variation_hours:** [terrible]{.underline}
+
+No outlier
+
+Median: 3.88 -\> terrible?
+
+```{r}
+mean(data$eta_variation_hours<=1)
+```
+
+Only 23.8% of the ETA variation is acceptable (\<= 1 hour). The remaining 76.2% is bad/terrible.
+
+**traffic_congestion_level:** bimodal (U-shaped distribution)
+
+=\> When is it low, when is it high? (CHECK time)
+
+**warehouse_inventory_level:**
+
+q1 16.05, median 157.29, q3 540.62, max 1000
+
+Really skewed =\> What makes it so skewed?
+
+CG: bad distribution (zeros being the most common means frequent stockouts)
+
+```{r}
+# sum(data$warehouse_inventory_level < 5)
+print("Observations < 5")
+mean(data$warehouse_inventory_level < 5)
+print("Observations < 1")
+mean(data$warehouse_inventory_level < 1)
+```
+
+17.7% observations are \<5, 10.8% observations are \<1
+
+**Observations about the distribution**
+
+**Skewed distribution:** Median (157) is well below the mean (299), and 3rd quartile is 540.6 → this is right-skewed, meaning there are some very high inventory hours driving up the mean.
+
+**Stockout risk:** 25% of hours have inventory ≤16 units, and some hours are at 0 → these are critical low-inventory periods.
+
+**Excess inventory:** Max = 1000, which is much higher than the 3rd quartile → some hours have overstock, potentially increasing holding costs.
+
+**Operational insight:** Most of the time, inventory is moderate, but extremes (very low or very high) may signal inefficiency in warehouse management or forecasting.
+
+| Band | Suggested inventory range (units) | Reasoning |
+|------|-----------------------------------|-----------|
+
+|  |  |  |
+|------------------------|------------------------|------------------------|
+| Ideal | 150 – 550 | Around median → 3rd quartile; good balance between avoiding stockouts and overstocking |
+
+|      |          |                                                          |
+|------|----------|----------------------------------------------------------|
+| Good | 50 – 150 | Slightly below median but still operationally acceptable |
+
+|            |         |                                                      |
+|---------------|---------------|------------------------------------------|
+| Acceptable | 16 – 50 | Low inventory, risk of stockout starting to increase |
+
+|     |        |                                           |
+|-----|--------|-------------------------------------------|
+| Bad | 1 – 16 | Critically low inventory; stockout likely |
+
+|          |     |                                        |
+|----------|-----|----------------------------------------|
+| Terrible | 0   | Warehouse empty, high operational risk |
+
+**Historical demand vs ETA Variation**
+
+```{r}
+ggplot(data,
+       aes(x = historical_demand,
+           y = eta_variation_hours)) +
+  geom_point()
+```
+
+**pairing data**
+
+```{r}
+# GGally::ggpairs(data)
+```
+
+**Correlation coefficient:** No cor \> 0.05
+
+```{r}
+for (i in (4:(ncol(data)))){
+  for (j in ((i+1):(ncol(data)))){
+    # print(colnames(data)[i])
+    # print(colnames(data)[j])
+    if (i != 25 && j != 25){
+      if (abs(cor(x = data[,i], y = data[,j])) > 0.05){
+        print(cor(x = data[,i], y = data[,j]))
+      }
+    }
+  }
+}
+```
+
+**loading_unloading_time (hours):** [terrible]{.underline}
+
+Range: 0.5 - 5 hours
+
+Rail cars & large truckloads can take longer; widened acceptable range.
+
+```{r}
+print("Observations <= 2 (Acceptable)")
+mean(data$loading_unloading_time <= 2)
+print("Observations > 2 & <= 3 (Bad)")
+mean(data$loading_unloading_time > 2 & data$loading_unloading_time <=3)
+print("Observations >3 (Terrible)")
+mean(data$loading_unloading_time > 3)
+```
+
+Only 51% of the entries have acceptable loading/unloading hours. 35% of the entries have terrible loading/unloading hours. Efficient docks average under an hour, \>2 hours signals severe bottleneck or paperwork/inspection delays.
+
+**lead_time_days:** 60 - 70% acceptable (NOTEWORTHILY GOOD) CHECK
+
+[If shipments are domestic-only]{.underline}, values \>14 days are flagged as terrible.
+
+Ideal: 1–2, Good: 2–5, Accept: 5–10, Bad: 10–14, Terrible: \>14.
+
+```{r}
+print("Observations <= 5 (Ideal & Good)")
+mean(data$lead_time_days <= 5)
+print("Observations 10 - 14 (Bad)")
+mean(data$lead_time_days > 10 & data$lead_time_days <= 14)
+print("Observations > 14 (Terrible)")
+mean(data$lead_time_days > 14)
+print("Observations > 10 (Bad | Terrible)")
+mean(data$lead_time_days > 10)
+print("Observations 5 - 10 (Accept)")
+mean(data$lead_time_days > 5 & data$lead_time_days <= 10)
+```
+
+Cross-country rail can stretch to \~10–14 days, but beyond that is unusual for domestic-only flows.
+
+[If imports are included]{.underline}, values up to \~30 days may still be acceptable, but \>30 are terrible
+
+Ideal: 1–3 days (fast domestic replenishment), Good: 3–7 days, Acceptable: 7–14 days, Bad: 14–30 days, Terrible: \>30 days
+
+```{r}
+print("Observations <= 7 (Ideal & Good)")
+mean(data$lead_time_days <= 7)
+print("Observations > 14 (Bad)")
+mean(data$lead_time_days > 14)
+print("Observations > 30 (Terrible)")
+mean(data$lead_time_days > 30)
+print("Observations 7 - 14 (Accept)")
+mean(data$lead_time_days > 7 & data$lead_time_days <= 14)
+```
+
+Drones could deliver in hours, but trucks & rail dominate → realistic baseline is days, not hours. Imports (if mixed in) can push \>14. 5.8% of the lead times are bad, while 68.8% are ideal/good. This is really GOOD.
+
+**iot temperature:** CG: high cargo risk? (CHECK)
+
+```{r}
+print("Bad: <5 degrees C or >35 degrees C")
+mean(data$iot_temperature < 5 & data$iot_temperature >= 0)
+mean(data$iot_temperature > 35  & data$iot_temperature <= 40)
+mean(data$iot_temperature < 5  & data$iot_temperature >= 0) + mean(data$iot_temperature > 35  & data$iot_temperature <= 40)
+print("Terrible: <0 degrees C or >40 degrees C")
+mean(data$iot_temperature < 0)
+mean(data$iot_temperature > 40)
+mean(data$iot_temperature < 0) + mean(data$iot_temperature > 40)
+
+print("Mean of the values")
+mean(data$iot_temperature)
+print("Median of the values")
+median(data$iot_temperature)
+```
+
+68% values are in "Terrible" (\<0 degrees C or \>40 degrees C) category (which is strange). The mean is close to 0 and the median is negative.
+
+For general consumer goods these bands protect product integrity.
+
+**customs_clearance_time:** NOTEWORTHY ideal
+
+Ideal: 0.5–6 h, Good: 6–24 h, Accept: 24–48 h, Bad: 48–72 h, Terrible: \>72 h (\>3 days).
+
+```{r}
+summary(data$customs_clearance_time)
+```
+
+Metadata says: *“Customs Clearance Time — float (hours/days, dataset-specific)”*. Typical U.S. customs clearance for truck/rail shipments is indeed often a few hours, rarely multiple days unless there’s an issue.
+
+So I'm assuming that the unit is hours for this variable and the observed values fall into "ideal" category.
+
+**handling_equipment_availability:** [terrible]{.underline}
+
+```{r}
+print("Observations 0.5 - 0.75 (Bad)")
+mean(data$handling_equipment_availability < 0.75 & data$handling_equipment_availability >=0.5)
+print("Observations <0.5 (Terrible)")
+mean(data$handling_equipment_availability < 0.5)
+```
+
+12.2% Bad, 72% Terrible
+
+**order_fulfillment_status:** [terrible]{.underline}
+
+```{r}
+# print("Observations 0.5 - 0.75 (Bad)")
+# mean(data$handling_equipment_availability < 0.75 & data$handling_equipment_availability >=0.5)
+print("Observations <0.8 (Terrible)")
+mean(data$handling_equipment_availability < 0.8)
+```
+
+86.9% is terrible (\<0.8). The median value is 0.68.
+
+Industry references put “excellent/perfect order” \>90% and prefer ≥95% for competitive retail/consumer goods.
+
+**port_congestion_level:** really right-skewed distribution, [terrible]{.underline}
+
+Baseline expected = 2–4; Ideal 0–2; Good 2–4; Accept 4–6; Bad 6–8; Terrible 8–10.
+
+```{r}
+print("Observations 6 - 8 (Bad)")
+mean(data$port_congestion_level > 6 & data$port_congestion_level <=8)
+print("Observations 8 - 10 (Terrible)")
+mean(data$port_congestion_level > 8)
+```
+
+13.6% Bad, 53.5% Terrible =\> 67.2% Bad/Terrible
+
+**cargo_condition_status:** [terrible]{.underline}
+
+Ideal 1.0; Good 0.95–1.0; Accept 0.85–0.95; Bad 0.6–0.85; Terrible \<0.6.
+
+```{r}
+print("Observations 0.6 - 0.85 (Bad)")
+mean(data$cargo_condition_status >= 0.6 & data$cargo_condition_status <0.85)
+print("Observations <0.6 (Terrible)")
+mean(data$cargo_condition_status <0.6)
+print("Observations < 0.5")
+mean(data$cargo_condition_status <0.5)
+```
+
+12.1% Bad, 78.1% Terrible (73% observations \< 0.5)
+
+**route_risk_level**: [terrible]{.underline}, q1 = 4.59 CG: \>50% terrible
+
+Ideal 0–2; Good 2–4; Accept 4–6; Bad 6–8; Terrible 8–10.
+
+```{r}
+mean(data$route_risk_level > 6)
+```
+
+67% bad/terrible
+
+**supplier_reliability_score:** [terrible]{.underline}
+
+Ideal 0.95–1.0; Good 0.9–0.95; Accept 0.8–0.9; Bad 0.6–0.8; Terrible \<0.6.
+
+```{r}
+mean(data$supplier_reliability_score < 0.8)
+```
+
+70% bad/ terrible
+
+**driver_behavior_score**: [terrible]{.underline} + weird (U-shaped, bimodal, median = 0.5\>\>)
+
+Ideal 0.95–1.0; Good 0.9–0.95; Accept 0.8–0.9; Bad 0.6–0.8; Terrible \<0.6.
+
+```{r}
+mean(data$driver_behavior_score < 0.8)
+```
+
+70.7% bad/terrible
+
+**fatigue_monitoring_score:** right-skewed. 0 = more fatigue
+
+```{r}
+mean(data$fatigue_monitoring_score < 0.7)
+```
+
+51.2% bad/terrible
+
+historical_demand:
+
+**shipping_costs:** CG: check if left-skewed is good (exact bar values)
+
+```{r}
+summary(data$shipping_costs)
+```
+
+-   **Skewness:** Mean (459.4) \> Median (389) → right-skewed distribution. Some shipments are significantly more expensive than typical.
+
+<!-- -->
+
+-   **Spread:** Wide interquartile range (IQR = 753 – 154 = 599). Costs vary considerably
+
+<!-- -->
+
+-   **Extreme values:** Max (1000) is much higher than 3rd quartile (753) → potential outliers or expensive exceptions (e.g., urgent shipments, long distances, or problematic routes).
+
+Shipping costs don’t have a fixed “ideal” band in your previous metadata; we can reason as follows:
+
+-   **Bulk of hours (1st–3rd quartile: 154–753 USD):** Moderate — mostly acceptable.
+
+<!-- -->
+
+-   **Median (389 USD):** Represents typical hourly cost — reasonable for a network-level snapshot.
+
+<!-- -->
+
+-   **Top 10–15% hours (753–1000 USD):** Worth investigating — these represent **stress periods or inefficiencies**, not single shipments.
+
+### **✅ Assessment**
+
+-   **Overall:** **Acceptable** distribution
+
+-   **Acceptable:** If significant hours fall in upper quartiles but not extreme, operations are functional but variable.
+
+-   **Terrible:** If many hours are consistently at the top end (Bad/Terrible), systemic inefficiency exists.
+
+|  |  |  |
+|------------------------|------------------------|------------------------|
+| Band | USD Range | Reasoning |
+| **Ideal** | 100 – 300 | Low-cost hours; typical baseline operational cost. Most efficient hours fall here. |
+| **Good** | 300 – 450 | Slightly above baseline; still acceptable efficiency. Around median/mean, |
+| **Acceptable** | 450 – 600 | Moderate cost; network under mild stress or higher activity. Worth monitoring, |
+| **Bad** | 600 – 800 | High-cost hours; may indicate congestion, inefficiencies, or multiple simultaneous high-cost events, |
+| **Terrible** | \>800 | Very high-cost hours; likely operational bottlenecks, delays, or exceptional events, |
+
+```{r}
+print("Bad")
+mean(data$shipping_costs > 600 & data$shipping_costs <= 800)
+print("Terrible")
+mean(data$shipping_costs > 800)
+```
+
+**Observation**
+
+-   Bad (13.1%) + Terrible (21.7%) = 34.8% of hours are high-cost.
+
+-   Over one-third of all hourly snapshots are in the top cost bands.
+
+**Assessment**
+
+-   Overall: This is worse than acceptable. For a well-functioning network, you’d expect most hours (\>60–70%) to be in Ideal/Good.
+
+-   Implication: A substantial portion of operational hours are expensive, indicating recurring inefficiencies or stress periods.
+
+    -   Likely causes to investigate:
+
+    -   Peak traffic congestion (reflected in ETA Variation, Route Risk, Fuel Consumption)
+
+    -   Warehouse bottlenecks (Loading/Unloading times, Equipment Availability)
+
+    -   Simultaneous high shipping volume across the network
+
+    -   Possible driver fatigue or behavior issues leading to higher operational costs
+
+```{r}
+colnames(data)
+```
+
+What drives shipping costs shipping costs vs fuel consumption rate
+
+```{r}
+# fuel consumption rate
+ggplot(data,
+       aes(x = fuel_consumption_rate,
+           y = shipping_costs)) +
+  geom_point()
+
+# customs clearance time
+ggplot(data,
+       aes(x = customs_clearance_time,
+           y = shipping_costs)) +
+  geom_point()
+
+# port congestion level
+ggplot(data,
+       aes(x = port_congestion_level,
+           y = shipping_costs)) +
+  geom_point()
+```
+
+**Aggregated Operational Health Index**
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+
+# Copy of the data
+ohi_data <- data %>%
+  filter(year(timestamp) == 2024)
+
+# ----------------------------
+# 1. Define scoring functions per variable
+# ----------------------------
+
+score_band <- function(x, bands) {
+  # bands should be a named vector: c(Ideal = 100, Good = 75, Acceptable = 50, Bad = 25, Terrible = 0)
+  # x can be numeric; use custom thresholds per variable
+  # For demonstration, we create example thresholds for key variables based on earlier discussion
+  
+  # Shipping Costs (per hour network-level)
+  if (x <= 300) return(bands["Ideal"])
+  else if (x <= 450) return(bands["Good"])
+  else if (x <= 600) return(bands["Acceptable"])
+  else if (x <= 800) return(bands["Bad"])
+  else return(bands["Terrible"])
+}
+
+# Function to score other variables similarly (example thresholds)
+score_eta <- function(x) {
+  if (x <= 0.25) return(100)
+  else if (x <= 0.5) return(75)
+  else if (x <= 1) return(50)
+  else if (x <= 2) return(25)
+  else return(0)
+}
+
+score_loading <- function(x) {
+  if (x <= 0.75) return(100)
+  else if (x <= 1.25) return(75)
+  else if (x <= 2) return(50)
+  else if (x <= 3) return(25)
+  else return(0)
+}
+
+score_fuel <- function(x) {
+  if (x <= 7) return(100)
+  else if (x <= 10) return(75)
+  else if (x <= 14) return(50)
+  else if (x <= 18) return(25)
+  else return(0)
+}
+
+score_order_fulfillment <- function(x) {
+  if (x >= 0.98) return(100)
+  else if (x >= 0.95) return(75)
+  else if (x >= 0.9) return(50)
+  else if (x >= 0.8) return(25)
+  else return(0)
+}
+
+score_route_risk <- function(x) {
+  if (x <= 2) return(100)
+  else if (x <= 4) return(75)
+  else if (x <= 6) return(50)
+  else if (x <= 8) return(25)
+  else return(0)
+}
+
+score_driver <- function(x) {
+  if (x >= 0.95) return(100)
+  else if (x >= 0.9) return(75)
+  else if (x >= 0.8) return(50)
+  else if (x >= 0.6) return(25)
+  else return(0)
+}
+
+score_fatigue <- function(x) {
+  if (x >= 0.9) return(100)
+  else if (x >= 0.8) return(75)
+  else if (x >= 0.7) return(50)
+  else if (x >= 0.5) return(25)
+  else return(0)
+}
+
+score_supplier <- function(x) {
+  if (x >= 0.95) return(100)
+  else if (x >= 0.9) return(80)
+  else if (x >= 0.8) return(60)
+  else if (x >= 0.6) return(40)
+  else return(20)
+}
+
+score_equipment <- function(x) {
+  if (x >= 0.98) return(100)
+  else if (x >= 0.9) return(80)
+  else if (x >= 0.75) return(60)
+  else if (x >= 0.5) return(40)
+  else return(20)
+}
+
+score_inventory <- function(x) {
+  if (x < 1) return(0)
+  else if (x <= 16) return(25)
+  else if (x <= 50) return(50)
+  else if (x <= 150) return(75)
+  else if (x > 550) return(0)
+  else return(100)
+}
+
+# ----------------------------
+# 2. Apply scoring functions to dataset
+# ----------------------------
+ohi_data <- ohi_data %>%
+  mutate(
+    score_shipping = sapply(shipping_costs, score_band, bands = c(Ideal=100, Good=75, Acceptable=50, Bad=25, Terrible=0)),
+    score_eta = sapply(eta_variation_hours, score_eta),
+    score_loading = sapply(loading_unloading_time, score_loading),
+    score_fuel = sapply(fuel_consumption_rate, score_fuel),
+    score_order = sapply(order_fulfillment_status, score_order_fulfillment),
+    score_route = sapply(route_risk_level, score_route_risk),
+    score_driver = sapply(driver_behavior_score, score_driver),
+    score_fatigue = sapply(fatigue_monitoring_score, score_fatigue),
+    score_supplier = sapply(supplier_reliability_score, score_supplier),
+    score_equipment = sapply(handling_equipment_availability, score_equipment),
+    score_inventory = sapply(warehouse_inventory_level, score_inventory)
+  )
+
+# ----------------------------
+# 3. Define reasonable weights (sum = 1)
+# ----------------------------
+weights <- c(
+  score_shipping = 0.15,
+  score_fuel = 0.1,
+  score_eta = 0.15,
+  score_loading = 0.1,
+  score_route = 0.1,
+  score_driver = 0.075,
+  score_fatigue = 0.075,
+  score_order = 0.1,
+  score_supplier = 0.075,
+  score_equipment = 0.05,
+  score_inventory = 0.05
+)
+# weights <- c(
+#   score_shipping = 0.2,
+#   score_eta = 0.2,
+#   score_loading = 0.1,
+#   score_fuel = 0.1,
+#   score_order = 0.15,
+#   score_route = 0.1,
+#   score_driver = 0.075,
+#   score_fatigue = 0.075
+# )
+
+# ----------------------------
+# 4. Compute weighted OHI
+# ----------------------------
+ohi_data <- ohi_data %>%
+  rowwise() %>%
+  mutate(
+    OHI = sum(
+      score_shipping*weights["score_shipping"],
+      score_eta*weights["score_eta"],
+      score_loading*weights["score_loading"],
+      score_fuel*weights["score_fuel"],
+      score_order*weights["score_order"],
+      score_route*weights["score_route"],
+      score_driver*weights["score_driver"],
+      score_fatigue*weights["score_fatigue"],
+      score_supplier*weights["score_supplier"],
+      score_equipment*weights["score_equipment"],
+      score_inventory*weights["score_inventory"]
+    )
+  ) %>%
+  ungroup()
+
+gamma = 1.5
+
+ohi_data <- ohi_data %>%
+  rowwise() %>%
+  mutate(
+    OHI_gamma = sum(
+      (score_shipping/100)**gamma*100*weights["score_shipping"],
+      (score_eta/100)**gamma*100*weights["score_eta"],
+      (score_loading/100)**gamma*100*weights["score_loading"],
+      (score_fuel/100)**gamma*100*weights["score_fuel"],
+      (score_order/100)**gamma*100*weights["score_order"],
+      (score_route/100)**gamma*100*weights["score_route"],
+      (score_driver/100)**gamma*100*weights["score_driver"],
+      (score_fatigue/100)**gamma*100*weights["score_fatigue"],
+      (score_supplier/100)**gamma*100*weights["score_supplier"],
+      (score_equipment/100)**gamma*100*weights["score_equipment"],
+      (score_inventory/100)**gamma*100*weights["score_inventory"]
+    )
+  ) %>%
+  ungroup()
+
+# ----------------------------
+# 5. Classify OHI into bands
+# ----------------------------
+ohi_data <- ohi_data %>%
+  mutate(
+    OHI_band = case_when(
+      OHI >= 80 ~ "Ideal",
+      OHI >= 60 ~ "Good",
+      OHI >= 40 ~ "Acceptable",
+      OHI >= 20 ~ "Bad",
+      TRUE ~ "Terrible"
+    )
+  )
+
+ohi_data <- ohi_data %>%
+  mutate(
+    OHI_gamma_band = case_when(
+      OHI_gamma >= 80 ~ "Ideal",
+      OHI_gamma >= 60 ~ "Good",
+      OHI_gamma >= 40 ~ "Acceptable",
+      OHI_gamma >= 20 ~ "Bad",
+      TRUE ~ "Terrible"
+    )
+  )
+
+# ----------------------------
+# 6. Plot OHI with color-coded bands
+# ----------------------------
+ggplot(ohi_data, aes(x = timestamp, y = OHI, color = OHI_band)) +
+  geom_line() +
+  scale_color_manual(values = c(
+    "Ideal" = "green",
+    "Good" = "blue",
+    "Acceptable" = "orange",
+    "Bad" = "red",
+    "Terrible" = "darkred"
+  )) +
+  labs(title = "Operational Health Index (OHI) Over Time",
+       x = "Timestamp",
+       y = "OHI (0-100)",
+       color = "OHI Band") +
+  theme_minimal()
+
+p <- ggplot(ohi_data, aes(x = timestamp, y = OHI, color = OHI_band)) +
+  # geom_line() +
+  # scale_color_manual(values = c(
+  #   "Ideal" = "green",
+  #   "Good" = "blue",
+  #   "Acceptable" = "orange",
+  #   "Bad" = "red",
+  #   "Terrible" = "darkred"
+  # )) +
+  geom_line(color = "steelblue") +
+  geom_hline(yintercept = 80, linetype="dashed", color="green") +  # Excellent threshold
+  geom_hline(yintercept = 60, linetype="dashed", color="orange") + # Good/Acceptable threshold
+  geom_hline(yintercept = 40, linetype="dashed", color="red") +    # Bad threshold
+  labs(title = "Operational Health Index (OHI) Over Time",
+       x = "Timestamp",
+       y = "OHI (0-100)"
+       # color = "OHI Band"
+       ) +
+  # scale_x_datetime(date_labels = "%Y-%m-%d %H:%M", date_breaks = "1 month") +
+  theme_minimal()
+  # theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplotly(p)
+
+# ----------------------------
+# 7. Summary: Percentage of hours per OHI band
+# ----------------------------
+ohi_summary <- ohi_data %>%
+  group_by(OHI_band) %>%
+  summarise(
+    hours_count = n()
+  ) %>%
+  mutate(
+    percent_hours = round(100 * hours_count / sum(hours_count), 1)
+  ) %>%
+  arrange(desc(percent_hours))
+
+# View summary
+print(ohi_summary)
+
+ggplot(ohi_data, aes(x = timestamp, y = OHI_gamma, color = OHI_gamma_band)) +
+  geom_line() +
+  scale_color_manual(values = c(
+    "Ideal" = "green",
+    "Good" = "blue",
+    "Acceptable" = "orange",
+    "Bad" = "red",
+    "Terrible" = "darkred"
+  )) +
+  labs(title = "Operational Health Index (OHI) Over Time",
+       x = "Timestamp",
+       y = "OHI (0-100)",
+       color = "OHI Band") +
+  theme_minimal()
+
+ggplot(ohi_data, aes(x = timestamp, y = OHI_gamma, color = OHI_gamma_band)) +
+  geom_line(color = "steelblue") +
+  geom_hline(yintercept = 80, linetype="dashed", color="green") +  # Excellent threshold
+  geom_hline(yintercept = 60, linetype="dashed", color="orange") + # Good/Acceptable threshold
+  geom_hline(yintercept = 40, linetype="dashed", color="red") +    # Bad threshold
+  labs(title = "Operational Health Index (OHI) Over Time",
+       x = "Timestamp",
+       y = "OHI (0-100)",
+       color = "OHI Band") +
+  theme_minimal()
+
+ohi_gamma_summary <- ohi_data %>%
+  group_by(OHI_gamma_band) %>%
+  summarise(
+    hours_count = n()
+  ) %>%
+  mutate(
+    percent_hours = round(100 * hours_count / sum(hours_count), 1)
+  ) %>%
+  arrange(desc(percent_hours))
+
+# View summary
+print(ohi_gamma_summary)
+```
