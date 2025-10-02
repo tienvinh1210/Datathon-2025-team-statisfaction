@@ -94,7 +94,6 @@ colors <- list(
 ### 🚨 Cost Crisis
 
 ```{r}
-#| warning: false
 #| fig-width: 12
 #| fig-height: 8
 #| warning: false
@@ -147,7 +146,6 @@ grid.arrange(p1, p2, ncol = 2)
 ### ⚠️ Risk Overload
 
 ```{r}
-#| warning: false
 #| fig-width: 12
 #| fig-height: 8
 #| warning: false
@@ -198,7 +196,6 @@ grid.arrange(p1, p2, ncol = 2)
 ### 📉 Delivery Failure
 
 ```{r}
-#| warning: false
 #| fig-width: 12
 #| fig-height: 8
 #| warning: false
@@ -251,7 +248,6 @@ grid.arrange(p1, p2, ncol = 2)
 ### 🔧 Equipment Shortages
 
 ```{r}
-#| warning: false
 #| fig-width: 12
 #| fig-height: 8
 #| warning: false
@@ -309,7 +305,6 @@ grid.arrange(p1, p2, ncol = 2)
 ### 👨‍💼 Driver Issues
 
 ```{r}
-#| warning: false
 #| fig-width: 12
 #| fig-height: 8
 #| warning: false
@@ -365,7 +360,6 @@ grid.arrange(p1, p2, ncol = 2)
 ### ⏰ Delay Escalation
 
 ```{r}
-#| warning: false
 #| fig-width: 12
 #| fig-height: 8
 #| warning: false
@@ -422,7 +416,6 @@ grid.arrange(p1, p2, ncol = 2)
 ### 📊 Performance Variability
 
 ```{r}
-#| warning: false
 #| fig-width: 12
 #| fig-height: 8
 #| warning: false
@@ -538,10 +531,6 @@ baseline_high <- risk_comprehensive[risk_comprehensive$risk_classification == "H
 actual_cost_increase <- ((baseline_high$avg_cost - baseline_low$avg_cost) / baseline_low$avg_cost) * 100
 actual_delay_increase <- ((baseline_high$avg_delay - baseline_low$avg_delay) / baseline_low$avg_delay) * 100
 
-cat("VALIDATION RESULTS:\n")
-cat("Actual Cost Increase: ", round(actual_cost_increase, 1), "% (Claim: 40%+)\n")
-cat("Actual Delay Increase: ", round(actual_delay_increase, 1), "% (Claim: 50%+)\n")
-cat("Service Quality Drop: ", round(baseline_low$on_time_rate - baseline_high$on_time_rate, 1), "%\n")
 
 # 3. CREATE STUNNING VISUALIZATION DATA
 viz_data <- data.frame(
@@ -749,7 +738,7 @@ p4 <- ggplot(efficiency_data, aes(x = Metric, y = Score, fill = Risk_Level)) +
   )
 
 # Combine all plots in a stunning layout
-grid.arrange(p1, p2, p3, p4, ncol = 2)
+grid.arrange(p2, p3, ncol = 2)
 ```
 
 **💡 Key Insight**: High-risk operations cost 40%+ more than low-risk operations while delivering 50%+ more delays, creating a massive inefficiency where the highest-cost operations provide the worst service quality.
@@ -918,7 +907,7 @@ p4 <- ggplot(risk_summary, aes(x = reorder(risk_classification, total_risk_score
         plot.title = element_text(size = 16, face = "bold", color = "#2C3E50"))
 
 # Combine all plots
-grid.arrange(p1, p2, p3, p4, ncol = 2)
+grid.arrange(p1, p2, ncol = 2)
 ```
 
 **💡 Key Insight**: Risk profiles reveal distinct operational patterns across risk classifications. High-risk operations show elevated scores across all dimensions (delay probability, disruption likelihood, route risk, traffic congestion, and ETA variation), creating a compounding effect that drives both cost escalation and service degradation. The radar chart visualization clearly demonstrates how risk factors cluster together, making comprehensive risk management essential for operational success.
@@ -926,7 +915,6 @@ grid.arrange(p1, p2, p3, p4, ncol = 2)
 ## Insight 3: Temporal Performance Degradation
 
 ```{r}
-#| warning: false
 #| fig-width: 14
 #| fig-height: 8
 #| warning: false
@@ -1090,7 +1078,7 @@ p_corr <- ggplot(monthly_analysis, aes(x = date, y = roll_corr)) +
         plot.subtitle = element_text(size = 10, color = "#7F8C8D"))
 
 # Combine all panels
-grid.arrange(p_idx, p2, p3, p_corr, ncol = 2, nrow = 2)
+grid.arrange(p_idx, p_corr, nrow = 2)
 ```
 
 **💡 Key Insight**: Performance has been declining consistently over time, with a strong negative correlation (-0.7) between on-time delivery rates and costs, indicating that as costs increase, service quality deteriorates, creating a vicious cycle.
@@ -1098,7 +1086,6 @@ grid.arrange(p_idx, p2, p3, p_corr, ncol = 2, nrow = 2)
 ## Insight 4: Network Pressure (Traffic × Weather × Port) Drives Delays & Cost
 
 ```{r}
-#| warning: false
 #| fig-width: 14
 #| fig-height: 8
 #| warning: false
@@ -1178,7 +1165,7 @@ p3 <- ggplot(top_pressure, aes(x = idx, y = over_target)) +
   theme_minimal() +
   theme(plot.title = element_text(size = 16, face = "bold", color = "#2C3E50"))
 
-grid.arrange(p1, p2, p3, ncol = 3)
+grid.arrange(p1, p2, ncol = 2)
 ```
 
 **💡 Key Insight**: A composite network pressure (traffic, weather, port congestion) explains delay and cost far better than driver metrics. High‑pressure deciles show systematically higher costs, longer delays, and lower on‑time rates; specific traffic×weather hot‑zones are prime targets for route/time-window optimization.
@@ -1188,7 +1175,6 @@ grid.arrange(p1, p2, p3, ncol = 3)
 ```{r}
 #| fig-width: 16
 #| fig-height: 10
-#| warning: false
 #| warning: false
 
 # California and Nevada geographic analysis
@@ -1319,7 +1305,7 @@ p4 <- ggplot(california_nevada_analysis, aes(x = reorder(region, avg_cost), y = 
         legend.position = "none")
 
 # Combine all plots
-grid.arrange(p1, p2, p3, p4, ncol = 2)
+grid.arrange(p1, p3, ncol = 2)
 ```
 
 **💡 Key Insight**: Risk is geographically concentrated across California and Nevada, with certain regions showing 70%+ high-risk operations. Nevada operations (30% of data) show distinct risk patterns, indicating that cross-state route optimization and geographic diversification could significantly reduce overall risk exposure.
@@ -1393,7 +1379,7 @@ grid.arrange(p1, p2, p3, p4, ncol = 2)
 ### Financial Projections
 
 | Initiative             | Cost Reduction | Revenue Impact | Timeline  | Investment |
-|------------------------|----------------|----------------|-----------|------------|
+|---------------|---------------|---------------|---------------|---------------|
 | Equipment Management   | 15-20%         | +5%            | 3 months  | \$500K     |
 | Route Optimization     | 20-25%         | +8%            | 6 months  | \$300K     |
 | Predictive Analytics   | 25-30%         | +12%           | 12 months | \$800K     |
