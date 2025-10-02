@@ -1170,7 +1170,7 @@ grid.arrange(p1, p2, ncol = 2)
 
 **💡 Key Insight**: A composite network pressure (traffic, weather, port congestion) explains delay and cost far better than driver metrics. High‑pressure deciles show systematically higher costs, longer delays, and lower on‑time rates; specific traffic×weather hot‑zones are prime targets for route/time-window optimization.
 
-## Insight 5: California & Nevada Geographic Risk & Cost Analysis
+## Insight 5: Geographic Risk & Cost Analysis
 
 ```{r}
 #| fig-width: 16
