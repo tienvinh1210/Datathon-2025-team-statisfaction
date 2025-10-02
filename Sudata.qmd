@@ -88,74 +88,371 @@ colors <- list(
 
 # Main Inefficiencies
 
-## Critical Performance Gaps
+## Main Inefficiencies {.tabset}
+
+::: panel-tabset
+### 🚨 Cost Crisis
 
 ```{r}
-#| fig-width: 14
+#| fig-width: 12
 #| fig-height: 8
 
-# Calculate key inefficiencies
-inefficiencies <- data %>%
+# Cost analysis
+cost_analysis <- data %>%
   summarise(
     avg_cost = mean(shipping_costs, na.rm = TRUE),
-    high_risk_pct = mean(risk_classification == "High Risk", na.rm = TRUE) * 100,
-    on_time_pct = mean(delivery_time_deviation <= 0, na.rm = TRUE) * 100,
-    equipment_issues = mean(handling_equipment_availability < 0.5, na.rm = TRUE) * 100,
-    driver_issues = mean(driver_behavior_score < 0.5, na.rm = TRUE) * 100,
-    fatigue_issues = mean(fatigue_monitoring_score > 0.7, na.rm = TRUE) * 100,
-    avg_delay = mean(delivery_time_deviation, na.rm = TRUE),
-    cost_variance = sd(shipping_costs, na.rm = TRUE)
+    target_cost = 150,
+    cost_variance = sd(shipping_costs, na.rm = TRUE),
+    cost_overrun_pct = ((avg_cost - target_cost) / target_cost) * 100
   )
 
-# Create inefficiency radar chart data
-inefficiency_data <- data.frame(
-  Category = c("Cost Overrun", "High Risk Ops", "Late Deliveries", "Equipment Issues", 
-               "Driver Problems", "Fatigue Issues", "Delay Hours", "Cost Variability"),
-  Current = c(inefficiencies$avg_cost/10, inefficiencies$high_risk_pct, 
-              100-inefficiencies$on_time_pct, inefficiencies$equipment_issues,
-              inefficiencies$driver_issues, inefficiencies$fatigue_issues,
-              inefficiencies$avg_delay*10, inefficiencies$cost_variance/10),
-  Target = c(15, 30, 15, 20, 20, 20, 2, 5)
-)
-
-# Create radar chart
-p1 <- ggplot(inefficiency_data, aes(x = Category)) +
-  geom_col(aes(y = Current, fill = "Current Performance"), alpha = 0.8, width = 0.6) +
-  geom_col(aes(y = Target, fill = "Target"), alpha = 0.4, width = 0.6) +
-  geom_text(aes(y = Current, label = paste0(round(Current, 1))), vjust = -0.5, size = 3, fontface = "bold") +
-  scale_fill_manual(values = c("Current Performance" = "#E74C3C", "Target" = "#27AE60")) +
-  labs(title = "🚨 Critical Performance Gaps Analysis",
-       subtitle = "Current performance vs target thresholds across key metrics",
-       x = "Performance Categories", y = "Score") +
+# Cost distribution with target line
+p1 <- ggplot(data, aes(x = shipping_costs)) +
+  geom_histogram(aes(fill = shipping_costs > 150), bins = 30, alpha = 0.7) +
+  geom_vline(xintercept = cost_analysis$avg_cost, color = "#E74C3C", size = 2, linetype = "dashed") +
+  geom_vline(xintercept = cost_analysis$target_cost, color = "#27AE60", size = 2, linetype = "solid") +
+  annotate("text", x = cost_analysis$avg_cost + 20, y = 100, 
+           label = paste0("Current: $", round(cost_analysis$avg_cost, 0)), 
+           color = "#E74C3C", size = 4, fontface = "bold") +
+  annotate("text", x = cost_analysis$target_cost - 20, y = 100, 
+           label = paste0("Target: $", cost_analysis$target_cost), 
+           color = "#27AE60", size = 4, fontface = "bold") +
+  scale_fill_manual(values = c("FALSE" = "#27AE60", "TRUE" = "#E74C3C"), 
+                    labels = c("Below Target", "Above Target")) +
+  labs(title = "💰 Cost Crisis: $200+ Average vs $150 Target",
+       subtitle = paste0("33% overrun (", round(cost_analysis$cost_overrun_pct, 1), "%) with high variability"),
+       x = "Shipping Costs (USD)", y = "Frequency", fill = "Cost Level") +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1),
-        legend.position = "bottom",
-        plot.title = element_text(size = 16, face = "bold", color = "#2C3E50"))
+  theme(plot.title = element_text(size = 16, face = "bold", color = "#E74C3C"),
+        legend.position = "bottom")
 
-# Cost distribution by risk level
-p2 <- ggplot(data, aes(x = shipping_costs, fill = risk_classification)) +
-  geom_density(alpha = 0.7, size = 1) +
-  facet_wrap(~risk_classification, scales = "free_y") +
+# Cost by risk level
+p2 <- ggplot(data, aes(x = risk_classification, y = shipping_costs, fill = risk_classification)) +
+  geom_boxplot(alpha = 0.7) +
+  geom_hline(yintercept = 150, color = "#27AE60", size = 1.5, linetype = "dashed") +
   scale_fill_manual(values = c("Low Risk" = "#27AE60", "Moderate Risk" = "#F39C12", "High Risk" = "#E74C3C")) +
-  labs(title = "💰 Cost Distribution by Risk Level",
-       x = "Shipping Costs (USD)", y = "Density") +
+  labs(title = "Cost Escalation by Risk Level",
+       x = "Risk Classification", y = "Shipping Costs (USD)") +
   theme_minimal() +
   theme(legend.position = "none",
-        plot.title = element_text(size = 16, face = "bold", color = "#2C3E50"))
+        plot.title = element_text(size = 14, face = "bold", color = "#2C3E50"))
 
-# Combine plots with enhanced styling
-combine_plots_enhanced(p1, p2, ncol = 2)
+grid.arrange(p1, p2, ncol = 2)
 ```
 
-### **Main Inefficiencies Identified:**
+**💡 Key Insight**: Average shipping cost (\$200+) exceeds target by 33%, with high variability. High-risk operations show significantly higher costs, indicating risk management directly impacts financial performance.
 
-1.  **🚨 Cost Crisis**: Average shipping cost (\$200+) exceeds target by 33%, with high variability
-2.  **⚠️ Risk Overload**: 60%+ operations classified as high-risk, far exceeding 30% target
-3.  **📉 Delivery Failure**: 35%+ late deliveries, well below 85% on-time target
-4.  **🔧 Equipment Shortages**: 40%+ equipment unavailability causing operational bottlenecks
-5.  **👨‍💼 Driver Issues**: 30%+ drivers with poor behavior scores and fatigue concerns
-6.  **⏰ Delay Escalation**: Average delays of 4+ hours, significantly impacting customer satisfaction
-7.  **📊 Performance Variability**: High cost and delivery time variability indicating unstable operations
+### ⚠️ Risk Overload
+
+```{r}
+#| fig-width: 12
+#| fig-height: 8
+
+# Risk analysis
+risk_analysis <- data %>%
+  count(risk_classification) %>%
+  mutate(percentage = n / sum(n) * 100,
+         target_pct = case_when(
+           risk_classification == "High Risk" ~ 30,
+           risk_classification == "Moderate Risk" ~ 40,
+           risk_classification == "Low Risk" ~ 30
+         ))
+
+# Risk distribution pie chart
+p1 <- ggplot(risk_analysis, aes(x = "", y = percentage, fill = risk_classification)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y", start = 0) +
+  geom_text(aes(label = paste0(round(percentage, 1), "%")), 
+            position = position_stack(vjust = 0.5), color = "white", fontface = "bold") +
+  scale_fill_manual(values = c("Low Risk" = "#27AE60", "Moderate Risk" = "#F39C12", "High Risk" = "#E74C3C")) +
+  labs(title = "⚠️ Risk Overload: 60%+ High-Risk Operations",
+       subtitle = "Far exceeding 30% target threshold") +
+  theme_void() +
+  theme(plot.title = element_text(size = 16, face = "bold", color = "#E74C3C"),
+        legend.position = "bottom")
+
+# Risk vs target comparison
+p2 <- ggplot(risk_analysis, aes(x = risk_classification)) +
+  geom_col(aes(y = percentage, fill = risk_classification), alpha = 0.8, width = 0.6) +
+  geom_col(aes(y = target_pct), fill = "gray", alpha = 0.3, width = 0.6) +
+  geom_text(aes(y = percentage, label = paste0(round(percentage, 1), "%")), 
+            vjust = -0.5, fontface = "bold") +
+  geom_text(aes(y = target_pct, label = paste0("Target: ", target_pct, "%")), 
+            vjust = 1.5, color = "gray", fontface = "bold") +
+  scale_fill_manual(values = c("Low Risk" = "#27AE60", "Moderate Risk" = "#F39C12", "High Risk" = "#E74C3C")) +
+  labs(title = "Current vs Target Risk Distribution",
+       x = "Risk Level", y = "Percentage (%)") +
+  theme_minimal() +
+  theme(legend.position = "none",
+        plot.title = element_text(size = 14, face = "bold", color = "#2C3E50"))
+
+grid.arrange(p1, p2, ncol = 2)
+```
+
+**💡 Key Insight**: 60%+ operations classified as high-risk, far exceeding 30% target. This risk concentration creates operational vulnerabilities and cost escalations throughout the supply chain.
+
+### 📉 Delivery Failure
+
+```{r}
+#| fig-width: 12
+#| fig-height: 8
+
+# Delivery performance analysis
+delivery_analysis <- data %>%
+  summarise(
+    on_time_rate = mean(delivery_time_deviation <= 0, na.rm = TRUE) * 100,
+    target_rate = 85,
+    late_delivery_pct = 100 - on_time_rate,
+    avg_delay = mean(delivery_time_deviation, na.rm = TRUE)
+  )
+
+# On-time delivery rate
+p1 <- ggplot(data, aes(x = delivery_time_deviation <= 0)) +
+  geom_bar(aes(fill = delivery_time_deviation <= 0), alpha = 0.8) +
+  geom_text(aes(label = paste0(round(delivery_analysis$on_time_rate, 1), "%")), 
+            stat = "count", vjust = -0.5, size = 5, fontface = "bold") +
+  geom_hline(yintercept = nrow(data) * 0.85, color = "#27AE60", size = 2, linetype = "dashed") +
+  scale_fill_manual(values = c("FALSE" = "#E74C3C", "TRUE" = "#27AE60"),
+                    labels = c("Late Deliveries", "On-Time Deliveries")) +
+  labs(title = "📉 Delivery Failure: 35%+ Late Deliveries",
+       subtitle = paste0("Current: ", round(delivery_analysis$on_time_rate, 1), "% vs Target: 85%"),
+       x = "Delivery Status", y = "Count") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 16, face = "bold", color = "#E74C3C"),
+        legend.position = "bottom")
+
+# Delay distribution
+p2 <- ggplot(data, aes(x = delivery_time_deviation)) +
+  geom_histogram(aes(fill = delivery_time_deviation > 0), bins = 30, alpha = 0.7) +
+  geom_vline(xintercept = 0, color = "#27AE60", size = 2, linetype = "dashed") +
+  geom_vline(xintercept = delivery_analysis$avg_delay, color = "#E74C3C", size = 2) +
+  annotate("text", x = delivery_analysis$avg_delay + 1, y = 50, 
+           label = paste0("Avg Delay: ", round(delivery_analysis$avg_delay, 1), "h"), 
+           color = "#E74C3C", size = 4, fontface = "bold") +
+  scale_fill_manual(values = c("FALSE" = "#27AE60", "TRUE" = "#E74C3C"),
+                    labels = c("Early/On-Time", "Delayed")) +
+  labs(title = "Delay Distribution",
+       x = "Delivery Time Deviation (hours)", y = "Frequency") +
+  theme_minimal() +
+  theme(legend.position = "bottom",
+        plot.title = element_text(size = 14, face = "bold", color = "#2C3E50"))
+
+grid.arrange(p1, p2, ncol = 2)
+```
+
+**💡 Key Insight**: 35%+ late deliveries, well below 85% on-time target. Average delays of 4+ hours significantly impact customer satisfaction and operational efficiency.
+
+### 🔧 Equipment Shortages
+
+```{r}
+#| fig-width: 12
+#| fig-height: 8
+
+# Equipment analysis
+equipment_analysis <- data %>%
+  summarise(
+    equipment_issues = mean(handling_equipment_availability < 0.5, na.rm = TRUE) * 100,
+    avg_availability = mean(handling_equipment_availability, na.rm = TRUE) * 100,
+    target_availability = 80
+  )
+
+# Equipment availability distribution
+p1 <- ggplot(data, aes(x = handling_equipment_availability)) +
+  geom_histogram(aes(fill = handling_equipment_availability < 0.5), bins = 20, alpha = 0.7) +
+  geom_vline(xintercept = 0.5, color = "#E74C3C", size = 2, linetype = "dashed") +
+  geom_vline(xintercept = equipment_analysis$avg_availability/100, color = "#F39C12", size = 2) +
+  annotate("text", x = 0.3, y = 100, 
+           label = paste0("Issues: ", round(equipment_analysis$equipment_issues, 1), "%"), 
+           color = "#E74C3C", size = 4, fontface = "bold") +
+  scale_fill_manual(values = c("FALSE" = "#27AE60", "TRUE" = "#E74C3C"),
+                    labels = c("Available", "Unavailable")) +
+  labs(title = "🔧 Equipment Shortages: 40%+ Unavailability",
+       subtitle = paste0("Average availability: ", round(equipment_analysis$avg_availability, 1), "%"),
+       x = "Equipment Availability (0-1)", y = "Frequency") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 16, face = "bold", color = "#E74C3C"),
+        legend.position = "bottom")
+
+# Equipment impact on performance
+equipment_impact <- data %>%
+  mutate(equipment_status = ifelse(handling_equipment_availability < 0.5, "Unavailable", "Available")) %>%
+  group_by(equipment_status) %>%
+  summarise(
+    avg_cost = mean(shipping_costs, na.rm = TRUE),
+    on_time_rate = mean(delivery_time_deviation <= 0, na.rm = TRUE) * 100,
+    n = n()
+  )
+
+p2 <- ggplot(equipment_impact, aes(x = equipment_status, y = avg_cost, fill = equipment_status)) +
+  geom_col(alpha = 0.8, width = 0.6) +
+  geom_text(aes(label = paste0("$", round(avg_cost, 0))), vjust = -0.5, fontface = "bold") +
+  scale_fill_manual(values = c("Available" = "#27AE60", "Unavailable" = "#E74C3C")) +
+  labs(title = "Equipment Impact on Costs",
+       x = "Equipment Status", y = "Average Cost (USD)") +
+  theme_minimal() +
+  theme(legend.position = "none",
+        plot.title = element_text(size = 14, face = "bold", color = "#2C3E50"))
+
+grid.arrange(p1, p2, ncol = 2)
+```
+
+**💡 Key Insight**: 40%+ equipment unavailability causing operational bottlenecks. Equipment shortages lead to modest cost increases and efficiency losses, though impact is smaller than other factors.
+
+### 👨‍💼 Driver Issues
+
+```{r}
+#| fig-width: 12
+#| fig-height: 8
+
+# Driver analysis
+driver_analysis <- data %>%
+  summarise(
+    driver_issues = mean(driver_behavior_score < 0.5, na.rm = TRUE) * 100,
+    fatigue_issues = mean(fatigue_monitoring_score > 0.7, na.rm = TRUE) * 100,
+    avg_behavior = mean(driver_behavior_score, na.rm = TRUE) * 100,
+    avg_fatigue = mean(fatigue_monitoring_score, na.rm = TRUE) * 100
+  )
+
+# Driver behavior distribution
+p1 <- ggplot(data, aes(x = driver_behavior_score)) +
+  geom_histogram(aes(fill = driver_behavior_score < 0.5), bins = 20, alpha = 0.7) +
+  geom_vline(xintercept = 0.5, color = "#E74C3C", size = 2, linetype = "dashed") +
+  geom_vline(xintercept = driver_analysis$avg_behavior/100, color = "#F39C12", size = 2) +
+  annotate("text", x = 0.3, y = 100, 
+           label = paste0("Poor Behavior: ", round(driver_analysis$driver_issues, 1), "%"), 
+           color = "#E74C3C", size = 4, fontface = "bold") +
+  scale_fill_manual(values = c("FALSE" = "#27AE60", "TRUE" = "#E74C3C"),
+                    labels = c("Good Behavior", "Poor Behavior")) +
+  labs(title = "👨‍💼 Driver Issues: 30%+ Poor Behavior Scores",
+       subtitle = paste0("Average behavior score: ", round(driver_analysis$avg_behavior, 1), "%"),
+       x = "Driver Behavior Score (0-1)", y = "Frequency") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 16, face = "bold", color = "#E74C3C"),
+        legend.position = "bottom")
+
+# Fatigue monitoring
+p2 <- ggplot(data, aes(x = fatigue_monitoring_score)) +
+  geom_histogram(aes(fill = fatigue_monitoring_score > 0.7), bins = 20, alpha = 0.7) +
+  geom_vline(xintercept = 0.7, color = "#E74C3C", size = 2, linetype = "dashed") +
+  geom_vline(xintercept = driver_analysis$avg_fatigue/100, color = "#F39C12", size = 2) +
+  annotate("text", x = 0.9, y = 100, 
+           label = paste0("High Fatigue: ", round(driver_analysis$fatigue_issues, 1), "%"), 
+           color = "#E74C3C", size = 4, fontface = "bold") +
+  scale_fill_manual(values = c("FALSE" = "#27AE60", "TRUE" = "#E74C3C"),
+                    labels = c("Low Fatigue", "High Fatigue")) +
+  labs(title = "Fatigue Concerns",
+       subtitle = paste0("Average fatigue score: ", round(driver_analysis$avg_fatigue, 1), "%"),
+       x = "Fatigue Monitoring Score (0-1)", y = "Frequency") +
+  theme_minimal() +
+  theme(legend.position = "bottom",
+        plot.title = element_text(size = 14, face = "bold", color = "#2C3E50"))
+
+grid.arrange(p1, p2, ncol = 2)
+```
+
+**💡 Key Insight**: 30%+ drivers with poor behavior scores and fatigue concerns. Driver performance directly impacts delivery reliability and operational efficiency.
+
+### ⏰ Delay Escalation
+
+```{r}
+#| fig-width: 12
+#| fig-height: 8
+
+# Delay analysis
+delay_analysis <- data %>%
+  summarise(
+    avg_delay = mean(delivery_time_deviation, na.rm = TRUE),
+    max_delay = max(delivery_time_deviation, na.rm = TRUE),
+    delay_variance = sd(delivery_time_deviation, na.rm = TRUE),
+    target_delay = 0
+  )
+
+# Delay distribution
+p1 <- ggplot(data, aes(x = delivery_time_deviation)) +
+  geom_histogram(aes(fill = delivery_time_deviation > 0), bins = 30, alpha = 0.7) +
+  geom_vline(xintercept = 0, color = "#27AE60", size = 2, linetype = "dashed") +
+  geom_vline(xintercept = delay_analysis$avg_delay, color = "#E74C3C", size = 2) +
+  annotate("text", x = delay_analysis$avg_delay + 1, y = 50, 
+           label = paste0("Avg Delay: ", round(delay_analysis$avg_delay, 1), "h"), 
+           color = "#E74C3C", size = 4, fontface = "bold") +
+  scale_fill_manual(values = c("FALSE" = "#27AE60", "TRUE" = "#E74C3C"),
+                    labels = c("Early/On-Time", "Delayed")) +
+  labs(title = "⏰ Delay Escalation: 4+ Hour Average Delays",
+       subtitle = paste0("Max delay: ", round(delay_analysis$max_delay, 1), "h, Variance: ", round(delay_analysis$delay_variance, 1), "h"),
+       x = "Delivery Time Deviation (hours)", y = "Frequency") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 16, face = "bold", color = "#E74C3C"),
+        legend.position = "bottom")
+
+# Delay by risk level
+delay_by_risk <- data %>%
+  group_by(risk_classification) %>%
+  summarise(
+    avg_delay = mean(delivery_time_deviation, na.rm = TRUE),
+    n = n()
+  )
+
+p2 <- ggplot(delay_by_risk, aes(x = risk_classification, y = avg_delay, fill = risk_classification)) +
+  geom_col(alpha = 0.8, width = 0.6) +
+  geom_text(aes(label = paste0(round(avg_delay, 1), "h")), vjust = -0.5, fontface = "bold") +
+  scale_fill_manual(values = c("Low Risk" = "#27AE60", "Moderate Risk" = "#F39C12", "High Risk" = "#E74C3C")) +
+  labs(title = "Delay by Risk Level",
+       x = "Risk Classification", y = "Average Delay (hours)") +
+  theme_minimal() +
+  theme(legend.position = "none",
+        plot.title = element_text(size = 14, face = "bold", color = "#2C3E50"))
+
+grid.arrange(p1, p2, ncol = 2)
+```
+
+**💡 Key Insight**: Average delays of 4+ hours, significantly impacting customer satisfaction. High-risk operations show the longest delays, creating a compounding effect on performance.
+
+### 📊 Performance Variability
+
+```{r}
+#| fig-width: 12
+#| fig-height: 8
+
+# Variability analysis
+variability_analysis <- data %>%
+  summarise(
+    cost_cv = sd(shipping_costs, na.rm = TRUE) / mean(shipping_costs, na.rm = TRUE) * 100,
+    delay_cv = sd(delivery_time_deviation, na.rm = TRUE) / mean(abs(delivery_time_deviation), na.rm = TRUE) * 100,
+    cost_range = max(shipping_costs, na.rm = TRUE) - min(shipping_costs, na.rm = TRUE),
+    delay_range = max(delivery_time_deviation, na.rm = TRUE) - min(delivery_time_deviation, na.rm = TRUE)
+  )
+
+# Cost variability
+p1 <- ggplot(data, aes(x = shipping_costs)) +
+  geom_density(fill = "#E74C3C", alpha = 0.7) +
+  geom_vline(xintercept = mean(data$shipping_costs, na.rm = TRUE), color = "#2C3E50", size = 2) +
+  annotate("text", x = mean(data$shipping_costs, na.rm = TRUE) + 50, y = 0.002, 
+           label = paste0("CV: ", round(variability_analysis$cost_cv, 1), "%"), 
+           color = "#2C3E50", size = 4, fontface = "bold") +
+  labs(title = "📊 Cost Variability",
+       subtitle = paste0("Range: $", round(variability_analysis$cost_range, 0), " | CV: ", round(variability_analysis$cost_cv, 1), "%"),
+       x = "Shipping Costs (USD)", y = "Density") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 16, face = "bold", color = "#E74C3C"))
+
+# Delay variability
+p2 <- ggplot(data, aes(x = delivery_time_deviation)) +
+  geom_density(fill = "#F39C12", alpha = 0.7) +
+  geom_vline(xintercept = mean(data$delivery_time_deviation, na.rm = TRUE), color = "#2C3E50", size = 2) +
+  annotate("text", x = mean(data$delivery_time_deviation, na.rm = TRUE) + 2, y = 0.05, 
+           label = paste0("CV: ", round(variability_analysis$delay_cv, 1), "%"), 
+           color = "#2C3E50", size = 4, fontface = "bold") +
+  labs(title = "Delay Variability",
+       subtitle = paste0("Range: ", round(variability_analysis$delay_range, 1), "h | CV: ", round(variability_analysis$delay_cv, 1), "%"),
+       x = "Delivery Time Deviation (hours)", y = "Density") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 14, face = "bold", color = "#2C3E50"))
+
+grid.arrange(p1, p2, ncol = 2)
+```
+
+**💡 Key Insight**: High cost and delivery time variability indicating unstable operations. This unpredictability makes planning difficult and increases operational risk.
+:::
 
 # Key Insights
 
@@ -691,16 +988,12 @@ suppressWarnings({
       monthly_analysis$roll_corr[i] <- suppressWarnings(cor(vals$on_time_rate, vals$avg_cost, use = "complete.obs"))
     }
   } else {
-    library(zoo)
     monthly_analysis <- monthly_analysis %>% arrange(date)
-    monthly_analysis$roll_corr <- zoo::rollapply(
-      data = monthly_analysis,
-      width = 6,
-      by = 1,
-      align = "right",
-      FUN = function(dfw) cor(dfw$on_time_rate, dfw$avg_cost, use = "complete.obs"),
-      by.column = FALSE, fill = NA_real_
-    )
+    monthly_analysis$roll_corr <- NA_real_
+    for (i in 6:nrow(monthly_analysis)) {
+      window_data <- monthly_analysis[(i-5):i, ]
+      monthly_analysis$roll_corr[i] <- cor(window_data$on_time_rate, window_data$avg_cost, use = "complete.obs")
+    }
   }
 })
 
@@ -1056,7 +1349,7 @@ grid.arrange(p_map, p2, ncol = 2)
 ### Financial Projections
 
 | Initiative             | Cost Reduction | Revenue Impact | Timeline  | Investment |
-|------------------------|----------------|----------------|-----------|------------|
+|-----------------|--------------|--------------|--------------|--------------|
 | Equipment Management   | 15-20%         | +5%            | 3 months  | \$500K     |
 | Route Optimization     | 20-25%         | +8%            | 6 months  | \$300K     |
 | Predictive Analytics   | 25-30%         | +12%           | 12 months | \$800K     |
